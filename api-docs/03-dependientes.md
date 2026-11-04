@@ -125,3 +125,7 @@ Elimina el registro (borrado físico, no lógico).
 con status **500** ante cualquier excepción no controlada.
 
 > Nota de formato: a diferencia de casi todos los demás controladores del backend (que usan `{ ok: boolean, mensaje }`), este controlador usa `{ error }` / `{ message }`. Tenlo en cuenta si vas a consumir la API desde un cliente genérico.
+
+## Eliminar dependiente de otro usuario (admin)
+🔒👑 `DELETE /api/dependientes/admin/:id` — rol `admin` o `superuser`. No filtra por propietario.
+**200** `{ ok:true, message:"Dependiente eliminado por el administrador" }` · **400** id no entero · **403** sin rol · **404** `{ error:"Dependiente no encontrado" }` · **500** `{ error }`. Deja registro en `historial`.

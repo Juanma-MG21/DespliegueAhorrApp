@@ -176,3 +176,13 @@ Devuelve las 4 preferencias posibles; las que el usuario no ha configurado expl�
 { "ok": false, "mensaje": "Error interno del servidor" }
 ```
 con status **500** ante cualquier excepción no controlada.
+
+## 9. 🔒 Registrar token push (FCM)
+`POST /api/push-tokens`
+```json
+{ "fcm_token": "<token FCM>", "plataforma": "android" }
+```
+Guarda o reasigna el token al usuario autenticado (upsert por `fcm_token`). Requiere la tabla `push_tokens` (agregada a `SQL/supabase.sql` en la auditoría; sin ella respondía 500).
+**200** `{ ok:true, mensaje:"Token registrado" }` · **400** `"fcm_token y plataforma son requeridos"` · **500**.
+
+Nota: los `:id` de `/api/notificaciones/:id...` deben ser enteros positivos (400 en caso contrario).

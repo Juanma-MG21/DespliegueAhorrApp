@@ -339,3 +339,35 @@ Ante cualquier excepción no controlada, todos los endpoints de este controlador
 { "ok": false, "mensaje": "<mensaje descriptivo del error>" }
 ```
 con status **500**.
+
+---
+
+# Complementos (auditoría 2026-11-04)
+
+## Cambios de comportamiento
+- Token inválido o vencido responde **401** (antes 403).
+- `GET /api/auth/PanelUsuarios`, `GET /api/auth/usuarios/PanelAdmin`, `GET /api/auth/dependientes/PanelAdmin` y `GET /api/auth/PanelDependientes` requieren rol `admin` o `superuser` (403 si no).
+- `POST /api/auth/register`: si `Email`, `Password_hash`, `Nombre` o `Apellido` no son texto responde **400** `{ ok:false, mensaje:"Los datos enviados tienen un formato inválido" }` (antes 500).
+
+## 🔒 Desactivar mi cuenta
+`PUT /api/auth/mi-cuenta/desactivar` — sin body. Cualquier rol.
+Marca la cuenta como inactiva y programa su eliminación definitiva a los 30 días.
+**200:** `{ ok:true, mensaje:"Tu cuenta ha sido desactivada. Si no la reactivas antes, será eliminada de forma permanente el AAAA-MM-DD." }` · **500** error interno.
+
+## 🔒 Editar mi perfil
+`PUT /api/auth/mi-perfil`
+```json
+{ "Nombre": "Ana", "Apellido": "Pérez", "Email": "ana@correo.com" }
+```
+Los tres campos deben ser texto no vacío; nombre y apellido solo letras; el correo con formato válido y no usado por otra cuenta. Se guardan sin espacios sobrantes.
+**200:** `{ ok:true, mensaje:"Tus datos se actualizaron correctamente", ... }` · **400** `"Completa todos los campos"`, `"El nombre y el apellido solo pueden contener letras"`, `"Ingresa un correo electrónico válido"`, `"Ese correo ya está en uso por otra cuenta"` · **500**.
+
+## 🔒 Cambiar mi contraseña
+`PUT /api/auth/mi-cuenta/password`
+```json
+{ "passwordActual": "******", "passwordNueva": "********" }
+```
+**200:** `{ ok:true, mensaje:"Contraseña actualizada correctamente" }` · **400** campos faltantes/no texto, nueva con menos de 8 caracteres, o **contraseña actual incorrecta** *(antes 401; cambiado para que el web no lo interprete como sesión vencida)* · **404** usuario no encontrado · **500**.
+
+## 🚫 `POST /api/auth/google` (no existe)
+La app móvil llama a este endpoint con `{ idToken, provider:"google" }`, pero el backend no lo implementa; responde 404. Ver `pendiente.md`.

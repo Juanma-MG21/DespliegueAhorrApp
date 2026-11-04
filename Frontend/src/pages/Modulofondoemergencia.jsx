@@ -44,7 +44,7 @@ export default function ModuloFondoEmergencia() {
     setCargando(true)
     try {
       const [resFondo, resMov] = await Promise.all([
-        getFondoEmergencia().catch((e) => (e.message === 'HTTPS 404' ? { ok: false, noExiste: true } : Promise.reject(e))),
+        getFondoEmergencia().catch((e) => (e.status === 404 ? { ok: false, noExiste: true } : Promise.reject(e))),
         getMovimientosFondoEmergencia().catch(() => ({ ok: false, datos: [] })),
       ])
       if (resFondo?.ok) setFondo(resFondo.datos)

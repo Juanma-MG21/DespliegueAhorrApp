@@ -566,3 +566,31 @@ Borra en cascada: `ingresos` → `entrada` → `movimientos`.
 { "ok": false, "mensaje": "Error interno del servidor" }
 ```
 con status **500** ante cualquier excepción no controlada.
+
+---
+
+# Complementos (auditoría 2026-11-04)
+
+## Idempotencia para la app móvil (`operation_id`) en `POST /api/movimientos`
+Campo opcional `operation_id` (UUID v4) en el body, junto a `tipo_flujo`, `subtipo_modulo` y `datos`. Permite reintentar una creación sin duplicarla (modo sin conexión, RF-19).
+- UUID mal formado → **400** `"operation_id inválido"`.
+- Mismo UUID con datos distintos → **409** `"El identificador de operación ya se usó con otros datos."`.
+- Mismo UUID y mismos datos → **200** con la respuesta original más `operation_id` y `repetido:true`.
+- Sin `operation_id` (cliente web) el comportamiento no cambia.
+Errores de validación de `POST /api/movimientos`: **400** (`datos` requerido, `monto` requerido, `tipo_flujo` ∈ {Entrada, Salida}, subtipo válido para el flujo).
+
+## 🔒 Listar abonos de ahorros
+`GET /api/movimientos/ahorros/abonos` → **200** `{ ok:true, datos:[{ id_abono, id_ahorros, monto, fecha_registro }] }` (más recientes primero).
+
+## 🔒 Listar abonos de deudas
+`GET /api/movimientos/deudas/abonos` → **200** `{ ok:true, datos:[{ id_abono_deuda, id_deudas, cuotas, monto, fecha_registro, descripcion }] }`.
+
+## 🔒 Capacidades de sincronización
+`GET /api/movimientos/sincronizacion` → **200** `{ ok:true, protocolo:1, idempotencia:true }`; **503** `{ ok:false, mensaje:"El servidor no pudo verificar la sincronización. Los pendientes se conservan." }`.
+
+## 🔒 Consultar una operación sincronizada
+`GET /api/movimientos/sincronizacion/operaciones/:operationId` (UUID v4).
+**200** `{ ok:true, encontrado:boolean, resultado:object|null }` · **400** `"Identificador de operación inválido."` · **503** `"No se pudo consultar el estado de la operación."`.
+
+## IDs
+Todos los `:id` de este módulo deben ser enteros positivos (400 en caso contrario).

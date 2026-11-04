@@ -202,7 +202,7 @@ const getPreferenciasUsuario = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 const actualizarPreferenciasUsuario = async (req, res) => {
   const ID_usuario = req.usuario.id;
-  const { preferencias } = req.body;
+  const { preferencias } = req.body || {};
 
   if (!Array.isArray(preferencias) || preferencias.length === 0) {
     return res.status(400).json({ ok: false, mensaje: "Debes enviar al menos una preferencia" });
@@ -230,7 +230,7 @@ const actualizarPreferenciasUsuario = async (req, res) => {
 
 const registrarPushToken = async (req, res) => {
   const ID_usuario = req.usuario.id;
-  const { fcm_token, plataforma } = req.body;
+  const { fcm_token, plataforma } = req.body || {};
 
   if (!fcm_token || !plataforma) {
     return res.status(400).json({ ok: false, mensaje: "fcm_token y plataforma son requeridos" });

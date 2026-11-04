@@ -18,12 +18,22 @@ const handleServerError = (res, error, msg) => {
 
 // ── POST /register ───────────────────────────────────────────────────────────
 const register = async (req, res) => {
-  const { Nombre, Apellido, Email, Password_hash } = req.body;
+  const { Nombre, Apellido, Email, Password_hash } = req.body || {};
 
   if (!Email || !Password_hash) {
     return res.status(400).json({
       ok: false,
       mensaje: "Datos incompletos",
+    });
+  }
+
+  // Antes: un Email/Password que no fuera texto hacía fallar bcrypt o la consulta (500).
+  if (typeof Email !== "string" || typeof Password_hash !== "string" ||
+      (Nombre != null && typeof Nombre !== "string") ||
+      (Apellido != null && typeof Apellido !== "string")) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: "Los datos enviados tienen un formato inválido",
     });
   }
 
@@ -71,7 +81,7 @@ const register = async (req, res) => {
 
 // ── POST /login ──────────────────────────────────────────────────────────────
 const login = async (req, res) => {
-  const { Email, Password_hash } = req.body;
+  const { Email, Password_hash } = req.body || {};
 
   try {
 
@@ -189,7 +199,7 @@ const forgotPassword = async (req, res) => {
 
 // ── POST /verify-reset-code ──────────────────────────────────────────────────
 const verifyResetCode = async (req, res) => {
-  const { Email, code } = req.body;
+  const { Email, code } = req.body || {};
 
   if (!Email || !code) {
     return res.status(400).json({
@@ -274,7 +284,7 @@ const verifyResetCode = async (req, res) => {
 
 // ── POST /reset-password ─────────────────────────────────────────────────────
 const resetPassword = async (req, res) => {
-  const { resetToken, nuevaPassword } = req.body;
+  const { resetToken, nuevaPassword } = req.body || {};
 
   if (!resetToken || !nuevaPassword) {
     return res.status(400).json({
@@ -371,7 +381,7 @@ const getUsuarios = async (req, res) => {
 // ── PUT /PanelUsuarios/:id ───────────────────────────────────────────────────
 const updateUsuario = async (req, res) => {
   const { id } = req.params;
-  const { Nombre, Apellido, Email } = req.body;
+  const { Nombre, Apellido, Email } = req.body || {};
 
   try {
     if (!id || isNaN(id)) {
@@ -414,7 +424,7 @@ const updateUsuario = async (req, res) => {
 // ── PUT /PanelUsuarios/:id/rol (solo superuser) ──────────────────────────────
 const actualizarRolUsuario = async (req, res) => {
   const { id } = req.params;
-  const { ID_rol } = req.body;
+  const { ID_rol } = req.body || {};
 
   try {
     if (!id || isNaN(id)) {
@@ -632,9 +642,18 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 // ── PUT /mi-perfil (autoservicio: editar mis propios datos) ─────────────────
 const actualizarMiPerfil = async (req, res) => {
   const ID_usuario = req.usuario.id;
-  const { Nombre, Apellido, Email } = req.body;
+  const { Nombre, Apellido, Email } = req.body || {};
 
-  if (!Nombre || !Apellido || !Email) {
+  // Antes: si llegaba un número u objeto, .trim() lanzaba TypeError fuera del
+  // try y la petición quedaba colgada sin respuesta.
+  if (typeof Nombre !== "string" || typeof Apellido !== "string" || typeof Email !== "string") {
+    return res.status(400).json({
+      ok: false,
+      mensaje: "Completa todos los campos",
+    });
+  }
+
+  if (!Nombre.trim() || !Apellido.trim() || !Email.trim()) {
     return res.status(400).json({
       ok: false,
       mensaje: "Completa todos los campos",
@@ -659,7 +678,7 @@ const actualizarMiPerfil = async (req, res) => {
     // El correo debe seguir siendo único, pero sin chocar consigo mismo
     const { rows: correoEnUso } = await pool.query(
       'SELECT id_usuario AS "ID_usuario" FROM usuarios WHERE email = $1 AND id_usuario <> $2',
-      [Email, ID_usuario]
+      [Email.trim(), ID_usuario]
     );
 
     if (correoEnUso.length > 0) {
@@ -673,7 +692,7 @@ const actualizarMiPerfil = async (req, res) => {
       `UPDATE usuarios
        SET nombre = $1, apellido = $2, email = $3
        WHERE id_usuario = $4`,
-      [Nombre, Apellido, Email, ID_usuario]
+      [Nombre.trim(), Apellido.trim(), Email.trim(), ID_usuario]
     );
 
     await registrarHistorial(ID_usuario, "Actualizó sus datos personales");
@@ -691,9 +710,10 @@ const actualizarMiPerfil = async (req, res) => {
 // ── PUT /mi-cuenta/password (autoservicio: cambiar mi contraseña) ───────────
 const cambiarMiPassword = async (req, res) => {
   const ID_usuario = req.usuario.id;
-  const { passwordActual, passwordNueva } = req.body;
+  const { passwordActual, passwordNueva } = req.body || {};
 
-  if (!passwordActual || !passwordNueva) {
+  if (!passwordActual || !passwordNueva ||
+      typeof passwordActual !== "string" || typeof passwordNueva !== "string") {
     return res.status(400).json({
       ok: false,
       mensaje: "Todos los campos son requeridos",
@@ -723,7 +743,9 @@ const cambiarMiPassword = async (req, res) => {
     const passwordValida = await bcrypt.compare(passwordActual, rows[0].password_hash);
 
     if (!passwordValida) {
-      return res.status(401).json({
+      // 400 y no 401: el web (fetchJSON) interpreta 401 como "sesión expirada"
+      // y cerraba la sesión del usuario por equivocarse al escribir su contraseña.
+      return res.status(400).json({
         ok: false,
         mensaje: "La contraseña actual es incorrecta",
       });

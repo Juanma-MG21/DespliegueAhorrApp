@@ -320,7 +320,7 @@ const getAhorrosPorCategoria = async (req, res) => {
 
 const crearCategoria = async (req, res) => {
   const id_usuario = req.usuario.id;
-  const { nombre, descripcion } = req.body;
+  const { nombre, descripcion } = req.body || {};
 
   const errorValidacion = validarCategoria(nombre, descripcion);
   if (errorValidacion) return res.status(400).json({ ok: false, mensaje: errorValidacion });
@@ -368,7 +368,7 @@ const crearCategoria = async (req, res) => {
 const actualizarCategoria = async (req, res) => {
   const id_usuario = req.usuario.id;
   const { id } = req.params;
-  const { nombre, descripcion } = req.body;
+  const { nombre, descripcion } = req.body || {};
 
   const errorValidacion = validarCategoria(nombre, descripcion);
   if (errorValidacion) return res.status(400).json({ ok: false, mensaje: errorValidacion });

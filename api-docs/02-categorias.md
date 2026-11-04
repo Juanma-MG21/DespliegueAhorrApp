@@ -262,3 +262,8 @@ No requiere body. Pone `activa = TRUE`.
 { "ok": false, "mensaje": "Error interno del servidor" }
 ```
 con status **500** ante cualquier excepción no controlada.
+
+## Eliminar categoría (complemento)
+🔒 `DELETE /api/categorias/:id`
+Solo categorías propias (no globales ni del sistema) y **previamente deshabilitadas**. Los registros que la usaban quedan sin categoría (FK `ON DELETE SET NULL`).
+**200** `{ ok:true, mensaje:"Categoria eliminada" }` · **400** id no entero · **403** `"No tienes permiso para eliminar esta categoria"` · **409** `"Solo puedes eliminar categorías deshabilitadas"` o `"La categoría cambió; recarga e inténtalo nuevamente"` · **500**.

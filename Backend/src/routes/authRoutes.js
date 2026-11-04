@@ -24,12 +24,12 @@ router.post("/login",                 login);
 router.post("/forgot-password",       forgotPassword);
 router.post("/verify-reset-code",     verifyResetCode);
 router.post("/reset-password",        resetPassword);
-router.get("/PanelUsuarios",          verifyToken, getUsuarios);
+router.get("/PanelUsuarios",          verifyToken, requireRole(["admin", "superuser"]), getUsuarios);
 router.put("/PanelUsuarios/:id",      verifyToken, requireRole(["admin", "superuser"]), updateUsuario);
 router.delete("/PanelUsuarios/:id",   verifyToken, requireRole(["admin", "superuser"]), deleteUsuario);
-router.get("/usuarios/PanelAdmin",    verifyToken, getUsuariosPanelAdmin);
-router.get("/dependientes/PanelAdmin", verifyToken, getDependientesPanelAdmin);
-router.get("/PanelDependientes", verifyToken, getTodosDependientesAdmin);
+router.get("/usuarios/PanelAdmin",    verifyToken, requireRole(["admin", "superuser"]), getUsuariosPanelAdmin);
+router.get("/dependientes/PanelAdmin", verifyToken, requireRole(["admin", "superuser"]), getDependientesPanelAdmin);
+router.get("/PanelDependientes", verifyToken, requireRole(["admin", "superuser"]), getTodosDependientesAdmin);
 
 router.put("/PanelUsuarios/:id/rol",  verifyToken, requireRole(["superuser"]), actualizarRolUsuario);
 

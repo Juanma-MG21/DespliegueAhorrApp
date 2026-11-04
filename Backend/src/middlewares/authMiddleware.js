@@ -17,7 +17,8 @@ const verifyToken = (req, res, next) => {
     req.usuario = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({
+    // 401 (no autenticado): el web (api.js) y el móvil lo usan para cerrar sesión.
+    return res.status(401).json({
       ok: false,
       mensaje: "Token inválido o expirado",
     });
@@ -25,7 +26,7 @@ const verifyToken = (req, res, next) => {
 };
 
 const requireRole = (rolesPermitidos) => (req, res, next) => {
-  const rolesUsuario = req.usuario.roles || [];
+  const rolesUsuario = (req.usuario && req.usuario.roles) || [];
   const tienePermiso = rolesPermitidos.some((rol) => rolesUsuario.includes(rol));
 
   if (!tienePermiso) {

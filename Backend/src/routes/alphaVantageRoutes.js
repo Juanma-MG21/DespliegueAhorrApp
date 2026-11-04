@@ -8,7 +8,7 @@ router.get('/bolsa/:symbol', async (req, res) => {
 
   try {
     const response = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${API_KEY}`
+      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${API_KEY}`
     )
     const data = await response.json()
     if (!response.ok) {

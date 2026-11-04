@@ -58,9 +58,9 @@ const getDependientes = async (req, res) => {
 // ── POST: Agregar un dependiente ───────────────────────────
 const addDependiente = async (req, res) => {
   const ID_usuario = req.usuario.id;
-  const { Nombre, Relacion, Ocupacion, Fecha_nacimiento, Peso_economico } = req.body;
+  const { Nombre, Relacion, Ocupacion, Fecha_nacimiento, Peso_economico } = req.body || {};
 
-  const errorValidacion = validarDependiente(req.body);
+  const errorValidacion = validarDependiente(req.body || {});
   if (errorValidacion) return res.status(400).json({ ok: false, error: errorValidacion, mensaje: errorValidacion });
 
   try {
@@ -82,9 +82,9 @@ const addDependiente = async (req, res) => {
 const updateDependiente = async (req, res) => {
   const { id } = req.params;
   const ID_usuario = req.usuario.id;
-  const { Nombre, Relacion, Ocupacion, Fecha_nacimiento, Peso_economico } = req.body;
+  const { Nombre, Relacion, Ocupacion, Fecha_nacimiento, Peso_economico } = req.body || {};
 
-  const errorValidacion = validarDependiente(req.body);
+  const errorValidacion = validarDependiente(req.body || {});
   if (errorValidacion) return res.status(400).json({ ok: false, error: errorValidacion, mensaje: errorValidacion });
 
   try {

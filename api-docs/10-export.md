@@ -1,12 +1,14 @@
 # API — Exportación de Datos (`exportController`)
 
-**Base path:** `/api/exportRoutes` *(nombre de ruta poco convencional — ver nota abajo)*
+> 🚫 **MÓDULO INACTIVO (2026-11-04):** `exportRoutes` está comentado en `index.js` (no hay ninguna ruta activa) y la página `exportar.jsx` está deshabilitada en el web. Esta documentación describe cómo se comportaría si se reactiva. Para reactivar: descomentar `app.use("/api/exportar", exportRoutes)` en `index.js`.
+
+**Base path (si se reactiva):** `/api/exportar`
 **Archivo de rutas:** `src/routes/exportRoutes.js`
 **Archivo de controlador:** `src/controllers/exportController.js`
 
 🔒 Todos los endpoints requieren `Authorization: Bearer <token>`.
 
-> ⚠️ **Nota de nombre de ruta:** el propio archivo de rutas trae un comentario del equipo admitiendo que no se sabe por qué el path público quedó como `/api/exportRoutes` en vez de `/api/exportar`. Funciona así en el código actual; si vas a consumirlo desde el frontend, usa `/api/exportRoutes` tal cual.
+> ⚠️ **Nota de nombre de ruta:** el propio archivo de rutas trae un comentario del equipo admitiendo que no se sabe por qué el path público quedó como `/api/exportar` en vez de `/api/exportar`. Funciona así en el código actual; si vas a consumirlo desde el frontend, usa `/api/exportar` tal cual.
 
 > ⚠️ **Nota de formato:** a diferencia de casi todos los demás controladores (que responden `{ ok: boolean, mensaje }`), este controlador responde errores como `{ error: "..." }` y éxito como el array/objeto crudo o `{ message: "..." }`. Tenlo en cuenta si vas a consumir la API desde un cliente genérico.
 
@@ -17,7 +19,7 @@ Formatos válidos para `formato`: `"json"`, `"csv"`, `"pdf"`.
 
 ## 1. 🔒 Crear una exportación
 
-`POST /api/exportRoutes`
+`POST /api/exportar`
 
 Consulta los datos del tipo pedido para el usuario autenticado y, dentro de la misma transacción, deja un registro en la tabla `historial`.
 
@@ -70,7 +72,7 @@ Devuelve un archivo PDF descargable (`Content-Type: application/pdf`), generado 
 
 ## 2. 🔒 Listar historial de exportaciones
 
-`GET /api/exportRoutes?page=1&limit=20&tipo=movimientos&formato=json`
+`GET /api/exportar?page=1&limit=20&tipo=movimientos&formato=json`
 
 ### Query params (todos opcionales)
 - `page` — entero, default `1`.
@@ -106,7 +108,7 @@ Devuelve directamente el array de filas (sin envolver en `{ ok, data }`):
 
 ## 3. 🔒 Eliminar un registro de exportación
 
-`DELETE /api/exportRoutes/:id`
+`DELETE /api/exportar/:id`
 
 Solo borra la entrada del **historial** de exportaciones (tabla `historial`); no borra los datos originales (movimientos, ingresos, etc.).
 

@@ -27,13 +27,17 @@ const app = express();
 // MIDDLEWARES
 // ================================
 
+// Orígenes permitidos: los de desarrollo + los que se definan en CORS_ORIGINS
+// (separados por coma), p. ej. la URL donde se despliega el frontend web.
+const ORIGENES_CORS = [
+    "https://localhost:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    ...(process.env.CORS_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean),
+];
+
 app.use(cors({
-    origin: [
-        "https://localhost:5173",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173"
-        
-    ],
+    origin: ORIGENES_CORS,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
@@ -70,6 +74,32 @@ app.get("/", (req, res) => {
         ok: true,
         mensaje: "Servidor AhorrApp corriendo"
     });
+});
+
+// ================================
+// 404 Y MANEJO GLOBAL DE ERRORES (siempre JSON { ok, mensaje })
+// ================================
+
+app.use((req, res) => {
+    res.status(404).json({ ok: false, mensaje: `Ruta no encontrada: ${req.method} ${req.originalUrl}` });
+});
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    // JSON mal formado en el body -> 400 (antes Express respondía HTML)
+    if (err && (err.type === "entity.parse.failed" || err instanceof SyntaxError)) {
+        return res.status(400).json({ ok: false, mensaje: "El cuerpo de la petición no es un JSON válido" });
+    }
+    if (err && err.type === "entity.too.large") {
+        return res.status(413).json({ ok: false, mensaje: "El cuerpo de la petición es demasiado grande" });
+    }
+    console.error("Error no controlado:", err && err.message);
+    res.status(500).json({ ok: false, mensaje: "Error interno del servidor" });
+});
+
+// Evita que una promesa rechazada sin capturar tumbe el proceso (500 en cadena)
+process.on("unhandledRejection", (motivo) => {
+    console.error("unhandledRejection:", motivo && motivo.message ? motivo.message : motivo);
 });
 
 // ================================

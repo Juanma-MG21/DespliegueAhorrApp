@@ -379,11 +379,19 @@ Recalcula todos los montos por categoría con el nuevo ingreso.
 { "ok": false, "mensaje": "No hay período activo" }
 ```
 
-## 12. ⚠️ Actualizar ingreso real (endpoint mal cableado, no invocar directamente)
+## 12. 🔒 Recalcular ingreso real del período abierto
 
 `PATCH /api/presupuestos/periodos/actualizar-ingreso`
 
-Ver nota de advertencia al inicio del documento — este endpoint apunta a un helper interno pensado para ser llamado desde código (`actualizarIngresoReal(ID_usuario, connection)`), no desde una petición HTTP.
+Handler HTTP (`actualizarIngresoRealHandler`) que invoca a `actualizarIngresoReal(ID_usuario)`: suma los ingresos del usuario dentro del rango del período abierto y actualiza `ingreso_real`. Sin body. Si no hay período abierto no hace nada. El backend también lo ejecuta solo al crear, editar o eliminar un ingreso.
+
+### Respuesta 200
+```json
+{ "ok": true, "mensaje": "Ingreso real actualizado correctamente" }
+```
+
+### Respuesta 500
+`{ ok:false, mensaje:"Error al actualizar ingreso real" }`
 
 ---
 

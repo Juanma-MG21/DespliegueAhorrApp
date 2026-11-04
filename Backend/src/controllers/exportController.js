@@ -168,7 +168,7 @@ exports.exportarDatos = async (req, res) => {
   let connection;
   
   try {
-    const { formato, tipo = 'movimientos', fechaInicio, fechaFin } = req.body;
+    const { formato, tipo = 'movimientos', fechaInicio, fechaFin } = req.body || {};
     
     const userId = req.usuario?.id;
     if (!userId) {

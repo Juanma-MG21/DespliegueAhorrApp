@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     password_hash VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     activo BOOLEAN NOT NULL DEFAULT TRUE,
-    fecha_eliminacion_programada TIMESTAMP NULL
+    fecha_eliminacion_programada TIMESTAMP NULL,
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1171,3 +1171,22 @@ ALTER TABLE notificaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE preferencias_notificacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fondos_emergencia ENABLE ROW LEVEL SECURITY;
 ALTER TABLE movimientos_fondo_emergencia ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- PUSH_TOKENS (tokens FCM del móvil)
+-- Usada por POST /api/push-tokens y NotificacionesService.
+-- Faltaba en este esquema: sin ella el endpoint respondía 500
+-- ("relation push_tokens does not exist"). Es idempotente: se
+-- puede ejecutar también sobre una BD ya existente.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS push_tokens (
+    id_push_token SERIAL PRIMARY KEY,
+    id_usuario    INT NOT NULL,
+    fcm_token     TEXT NOT NULL UNIQUE,
+    plataforma    VARCHAR(20) NOT NULL,
+    fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_usuario ON push_tokens(id_usuario);
+
+ALTER TABLE push_tokens ENABLE ROW LEVEL SECURITY;

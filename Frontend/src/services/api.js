@@ -17,7 +17,15 @@ const fetchJSON = async (url, options = {}) => {
     throw new Error("Sesión expirada");
   }
   
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    // Antes solo se lanzaba "HTTP 400/500" y se perdía el motivo real.
+    // El backend responde { ok:false, mensaje } (algunos módulos usan { error }).
+    const data = await res.json().catch(() => ({}));
+    const error = new Error(data.mensaje || data.error || `HTTP ${res.status}`);
+    error.status = res.status;
+    error.response = { status: res.status, data };
+    throw error;
+  }
   
   return res.json();
 };

@@ -1,9 +1,17 @@
 const axios = require('axios');
 
 const chat = async (req, res) => {
-  const { messages, system } = req.body;
+  const { messages, system } = req.body || {};
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
   const MODEL = process.env.MODEL;
+
+  // Antes: sin "messages" el spread lanzaba TypeError y respondía 500.
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "Debes enviar 'messages' como un arreglo con al menos un mensaje" });
+  }
+  if (!OPENROUTER_API_KEY) {
+    return res.status(503).json({ error: "El asistente no está configurado en el servidor" });
+  }
 
   try {
     const response = await axios.post(
@@ -36,8 +44,9 @@ const chat = async (req, res) => {
     // Esto nos dirá el error REAL en la terminal
     console.error("ERROR REAL DE OPENROUTER:", err.response ? err.response.data : err.message);
     
-    const detailedError = err.response ? err.response.data.error.message : "Error de conexión";
-    res.status(500).json({ error: detailedError });
+    // Antes: err.response.data.error.message lanzaba TypeError si la forma del error variaba.
+    const detailedError = err.response?.data?.error?.message || "Error de conexión con el asistente";
+    res.status(502).json({ error: detailedError });
   }
 };
 
