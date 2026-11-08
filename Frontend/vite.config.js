@@ -4,6 +4,11 @@ import fs from 'fs';
 
 export default defineConfig({
   plugins: [react()], 
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/setupTests.js',
+  },
   server: {
     host: `localhost`,
     port: 5173,
