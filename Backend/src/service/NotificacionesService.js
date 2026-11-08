@@ -316,19 +316,19 @@ const verificarUmbralAhorros = async (ID_usuario) => {
 
 // --- EMERGENCIA ---
 // --- EMERGENCIA ---
+// --- EMERGENCIA ---
 const verificarUmbralEmergencia = async (ID_usuario) => {
   try {
     const periodo = await getPeriodoActivo(ID_usuario);
     if (!periodo) return;
 
-    const fi = periodo.Fecha_inicio;
-    const ff = periodo.Fecha_fin;
     const monto_emergencia = periodo.Monto_emergencia;
     const id_presupuesto = periodo.ID_presupuesto;
 
     if (!monto_emergencia || Number(monto_emergencia) <= 0) return;
 
-    // CORRECCIÓN: Se lee lo insertado en la tabla de movimientos, no la meta
+    // CORRECCIÓN: Se eliminó el "BETWEEN $2 AND $3" 
+    // Ahora suma TODO el saldo histórico del fondo (aportes - retiros)
     const { rows: [eme] } = await pool.query(
       `SELECT COALESCE(
          SUM(CASE WHEN mfe.tipo = 'aporte' THEN mfe.monto
@@ -337,12 +337,15 @@ const verificarUmbralEmergencia = async (ID_usuario) => {
          ), 0)::float AS total
        FROM movimientos_fondo_emergencia mfe
        JOIN fondos_emergencia fe ON mfe.id_fondo = fe.id_fondo
-       WHERE fe.id_usuario = $1
-         AND mfe.fecha_registro BETWEEN $2 AND $3`,
-      [ID_usuario, fi, ff]
+       WHERE fe.id_usuario = $1`,
+      [ID_usuario]
     );
 
     const porcentaje = (Number(eme.total) / Number(monto_emergencia)) * 100;
+    
+    // Log para verificar en Render
+    console.log(`[FONDO EMERGENCIA] Saldo: ${eme.total} | Límite: ${monto_emergencia} | %: ${porcentaje.toFixed(2)}%`);
+
     if (porcentaje < UMBRAL_EMERGENCIA) return;
 
     const yaExiste = await existeNotificacionEntidad(
