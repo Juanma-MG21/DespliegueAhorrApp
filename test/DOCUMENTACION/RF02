@@ -1,0 +1,188 @@
+# AhorrApp · Documentación de pruebas
+
+## RF-02: Gestionar ingresos — Backend (Jest)
+
+| | |
+|---|---|
+| **Requerimiento** | RF-02 · Gestionar ingresos |
+| **Alcance de este documento** | Pruebas automatizadas del backend (Node.js + Express) |
+| **Fecha de ejecución** | 2026-11-08 |
+| **Resultado global** | **59 de 59 pruebas aprobadas** |
+
+---
+
+## 1. Resumen
+
+Se verificó el comportamiento del backend para las operaciones de RF-02 (registrar, consultar, editar y eliminar ingresos) mediante 59 pruebas automatizadas. Todas se ejecutaron con resultado **aprobado**.
+
+| Operación | Endpoint | Pruebas | Aprobadas |
+|---|---|:---:|:---:|
+| Autenticación requerida | Las 4 rutas | 8 | 8 |
+| Registrar ingreso | `POST /api/movimientos` | 23 | 23 |
+| Consultar ingresos | `GET /api/movimientos/ingresos` | 3 | 3 |
+| Editar ingreso | `PUT /api/movimientos/ingresos/:id` | 17 | 17 |
+| Eliminar ingreso | `DELETE /api/movimientos/ingresos/:id` | 8 | 8 |
+| **Total** | | **59** | **59** |
+
+---
+
+## 2. Requerimiento verificado
+
+Texto original (documento IEEE, sin modificaciones):
+
+> **RF-02: Gestionar ingresos.** El sistema deberá permitir a los usuarios registrar, consultar, editar, eliminar y clasificar ingresos (salarios, comisiones, bonificaciones y otras fuentes) indicando monto, fuente, descripción, fecha y categoría, manteniendo un listado organizado disponible para análisis financiero.
+>
+> **Precondiciones:** el usuario debe haber iniciado sesión; la cuenta debe estar activa.
+>
+> **Restricciones:** el monto debe ser mayor que cero (`CHECK (monto > 0)` en base de datos; el backend además rechaza montos vacíos). Cada usuario solo accede a sus propios ingresos. La fecha de registro es opcional; si no se envía, se usa la fecha actual.
+
+### Código bajo prueba
+
+| Archivo | Elementos |
+|---|---|
+| `Backend/src/controllers/movimientosController.js` | `crearMovimiento`, `getIngresos`, `updateIngresos`, `deleteIngresos` |
+| `Backend/src/routes/movimientosRoutes.js` | Rutas y validación del parámetro `:id` |
+| `Backend/src/middlewares/authMiddleware.js` | `verifyToken` (JWT) |
+| `Backend/src/middlewares/validarParams.js` | `validarIdParam` |
+| `Backend/src/service/validaciones.js` | Validación de monto, texto y fecha; mapeo de errores de PostgreSQL |
+
+---
+
+## 3. Entorno y estrategia
+
+| Elemento | Detalle |
+|---|---|
+| Framework de pruebas | Jest (versión declarada en `package.json`: `^30.5.2`) |
+| Pruebas HTTP | Supertest (`^7.3.2`) |
+| Archivo de pruebas | `test/backend/rf02/ingresos.test.js` |
+| Configuración | `Backend/jest.config.js` y `test/backend/setupEnv.js` |
+| Comando | `npx jest ingresos` (desde la carpeta `Backend`) |
+
+**Estrategia.** Las pruebas montan una aplicación Express con solo las rutas de movimientos. La base de datos y los servicios dependientes (`actualizarIngresoReal`, notificaciones, operaciones móviles, sincronización) están **simulados (mocks)**, por lo que no se accede a Supabase. El token JWT se firma realmente, de modo que el middleware de autenticación se ejecuta sin simulación.
+
+---
+
+## 4. Casos de prueba y resultados
+
+### 4.1 Autenticación (precondición: sesión iniciada)
+
+| ID | Caso | Resultado esperado | Resultado |
+|---|---|---|:---:|
+| CP-ING-01 a 04 | `POST`, `GET`, `PUT` y `DELETE` sin token | 401; no se consulta la BD | ✅ |
+| CP-ING-05 a 08 | Las mismas 4 operaciones con token inválido | 401, mensaje "Token inválido o expirado"; no se abre conexión | ✅ |
+
+### 4.2 Registrar ingreso — `POST /api/movimientos`
+
+| ID | Caso | Resultado esperado | Resultado |
+|---|---|---|:---:|
+| CP-ING-09 | Datos completos | 201; transacción `BEGIN`…`COMMIT`; ingreso asociado al usuario del token; recalcula ingreso real | ✅ |
+| CP-ING-10 | Sin `fecha_registro` | Se envía `null` y la BD aplica `CURRENT_DATE` | ✅ |
+| CP-ING-11 | Descripción, fuente y categoría omitidas | 201; se guardan como `null` | ✅ |
+| CP-ING-12 | Monto como texto numérico (`"100.50"`) y textos con espacios | 201; monto `100.5`; textos recortados | ✅ |
+| CP-ING-13 | Monto ausente | 400 "El campo monto es requerido" | ✅ |
+| CP-ING-14 | Monto vacío | 400 "El campo monto es requerido" | ✅ |
+| CP-ING-15 | Monto `null` | 400 "El campo monto es requerido" | ✅ |
+| CP-ING-16 | Monto `0` | 400 "El monto debe ser mayor que cero" | ✅ |
+| CP-ING-17 | Monto negativo | 400 "El monto debe ser mayor que cero" | ✅ |
+| CP-ING-18 | Monto no numérico (`"abc"`) | 400 "El monto debe ser un número válido" | ✅ |
+| CP-ING-19 | Monto booleano | 400 "El monto debe ser un número válido" | ✅ |
+| CP-ING-20 | Monto superior al máximo permitido | 400 "…no puede superar…" | ✅ |
+| CP-ING-21 | Descripción de más de 255 caracteres | 400 | ✅ |
+| CP-ING-22 | Fuente de más de 150 caracteres | 400 | ✅ |
+| CP-ING-23 | Fecha inexistente (`2026-13-45`) | 400 "La fecha de registro no es válida" | ✅ |
+| CP-ING-24 | Fecha con formato incorrecto (`01/11/2026`) | 400 | ✅ |
+| CP-ING-25 | Campo `datos` ausente | 400 "El campo datos es requerido" | ✅ |
+| CP-ING-26 | `tipo_flujo` inválido | 400 "tipo_flujo inválido" | ✅ |
+| CP-ING-27 | Subtipo no válido para `Entrada` | 400 "Subtipo inválido para Entrada" | ✅ |
+| CP-ING-28 | Categoría inexistente (error BD `23503`) | 400; `ROLLBACK`; conexión liberada | ✅ |
+| CP-ING-29 | Violación del `CHECK` de la BD (`23514`) | 400 | ✅ |
+| CP-ING-30 | Error inesperado de la BD | 500 genérico; `ROLLBACK` | ✅ |
+| CP-ING-31 | Falla el recálculo del ingreso real tras el `COMMIT` | 201 (la creación no se revierte) | ✅ |
+
+> En los casos CP-ING-13 a 27 se verificó además que **no se abre conexión** a la base de datos (validación temprana).
+
+### 4.3 Consultar ingresos — `GET /api/movimientos/ingresos`
+
+| ID | Caso | Resultado esperado | Resultado |
+|---|---|---|:---:|
+| CP-ING-32 | Usuario con ingresos | 200; listado; consulta filtrada por el `id` del token y ordenada por fecha descendente | ✅ |
+| CP-ING-33 | Usuario sin ingresos | 200; arreglo vacío | ✅ |
+| CP-ING-34 | Error de la BD | 500 genérico | ✅ |
+
+### 4.4 Editar ingreso — `PUT /api/movimientos/ingresos/:id`
+
+| ID | Caso | Resultado esperado | Resultado |
+|---|---|---|:---:|
+| CP-ING-35 | Ingreso propio con datos válidos | 200; recalcula ingreso real; la consulta restringe al usuario | ✅ |
+| CP-ING-36 | Campos opcionales omitidos | 200; descripción, fuente y categoría quedan en `null`; la fecha se conserva (`COALESCE`) | ✅ |
+| CP-ING-37 | Ingreso inexistente o de otro usuario | 404 "Ingreso no encontrado"; no recalcula | ✅ |
+| CP-ING-38 a 42 | `id` de ruta inválido (`abc`, `0`, `-1`, `1.5`, `99999999999`) | 400; no se consulta la BD | ✅ |
+| CP-ING-43 | Monto ausente | 400 | ✅ |
+| CP-ING-44 | Monto `0` | 400 | ✅ |
+| CP-ING-45 | Monto negativo | 400 | ✅ |
+| CP-ING-46 | Fecha inválida | 400 | ✅ |
+| CP-ING-47 | Descripción de más de 255 caracteres | 400 | ✅ |
+| CP-ING-48 | Fuente de más de 150 caracteres | 400 | ✅ |
+| CP-ING-49 | Violación del `CHECK` de la BD (`23514`) | 400 | ✅ |
+| CP-ING-50 | Error inesperado | 500 genérico | ✅ |
+| CP-ING-51 | Falla el recálculo del ingreso real | 200 (la edición se mantiene) | ✅ |
+
+### 4.5 Eliminar ingreso — `DELETE /api/movimientos/ingresos/:id`
+
+| ID | Caso | Resultado esperado | Resultado |
+|---|---|---|:---:|
+| CP-ING-52 | Ingreso propio | 200; borra en orden `ingresos` → `entrada` → `movimientos`; `COMMIT`; recalcula ingreso real | ✅ |
+| CP-ING-53 | Ingreso inexistente o de otro usuario | 404; `ROLLBACK`; no se borra nada | ✅ |
+| CP-ING-54 a 57 | `id` de ruta inválido (`abc`, `0`, `-1`, `1.5`) | 400; no se abre conexión | ✅ |
+| CP-ING-58 | Error durante el borrado | 500; `ROLLBACK`; conexión liberada | ✅ |
+| CP-ING-59 | Falla el recálculo del ingreso real tras el `COMMIT` | 200 (el borrado se mantiene) | ✅ |
+
+---
+
+## 5. Trazabilidad con el requerimiento
+
+| Elemento del RF-02 | Casos que lo verifican |
+|---|---|
+| Registrar | CP-ING-09 a 12 |
+| Consultar | CP-ING-32 a 34 |
+| Editar | CP-ING-35 a 51 |
+| Eliminar | CP-ING-52 a 59 |
+| Precondición: usuario con sesión iniciada | CP-ING-01 a 08 |
+| Restricción: monto mayor que cero (backend) | CP-ING-13 a 20, 43 a 45 |
+| Restricción: cada usuario accede solo a sus ingresos | CP-ING-32, 35, 37, 52, 53 |
+| Restricción: fecha opcional, por defecto la actual | CP-ING-10, 36 |
+| Postcondición: ingresos persistidos y presupuesto actualizado | CP-ING-09, 35, 52 (y fallos tolerados: 31, 51, 59) |
+
+---
+
+## 6. Evidencia de ejecución
+
+Comando ejecutado desde `Backend/`:
+
+```
+npx jest ingresos
+```
+
+Resumen devuelto por Jest:
+
+```
+ PASS  ../test/backend/rf02/ingresos.test.js (16.154 s)
+
+Test Suites: 1 passed, 1 total
+Tests:       59 passed, 59 total
+Snapshots:   0 total
+Time:        21.712 s
+Ran all test suites matching ingresos.
+```
+
+> Pendiente: insertar aquí la captura de pantalla de la terminal.
+
+---
+
+## 7. Observaciones y limitaciones
+
+1. **Pruebas con BD simulada.** Se verifica la lógica del controlador y los parámetros enviados a la base de datos, pero no se ejecutan consultas reales. La restricción `CHECK (monto > 0)` y el aislamiento de datos a nivel SQL no se validan contra PostgreSQL; para ello haría falta una prueba de integración con una BD de pruebas.
+2. **Precondición "cuenta activa".** En el código revisado (`verifyToken` y el controlador) solo se valida el token JWT; no se comprueba que la cuenta esté activa. No hay prueba asociada. Se revisará junto con RF-09 (Iniciar sesión).
+3. **Edición no parcial.** `PUT` guarda `null` en descripción, fuente y categoría si no se envían (solo la fecha conserva su valor anterior). Es el comportamiento actual y queda fijado en CP-ING-36.
+4. **Categoría.** El backend delega en la clave foránea la existencia de la categoría (CP-ING-28). En el código revisado no se valida que la categoría pertenezca al usuario.
+5. **Alcance.** Este documento cubre solo el backend. Las pruebas del frontend web (Vitest) y el manual de usuario de RF-02 se documentarán a continuación.

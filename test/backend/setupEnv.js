@@ -1,0 +1,1 @@
+process.env.JWT_SECRET = "secreto_de_pruebas";
