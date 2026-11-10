@@ -1,5 +1,5 @@
 // const API_URL = "http://localhost:3000/api";
-export const API_URL = "https://ahorrapp-react-pkj9.onrender.com/api";
+export const API_URL = "/api";
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

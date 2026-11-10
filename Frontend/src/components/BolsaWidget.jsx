@@ -56,7 +56,7 @@ export default function BolsaWidget() {
   // TRM
   // ─────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('https://ahorrapp-react-pkj9.onrender.com/api/bolsa/trm/usd-cop')
+    fetch('/api/bolsa/trm/usd-cop')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.trm) {
@@ -78,7 +78,7 @@ export default function BolsaWidget() {
       await Promise.all(
         lista.map(async (accion) => {
           const res = await fetch(
-            `https://ahorrapp-react-pkj9.onrender.com/api/bolsa/${accion.symbol}`
+            `/api/bolsa/${accion.symbol}`
             
           )
 
@@ -150,7 +150,7 @@ export default function BolsaWidget() {
 
     try {
       const res = await fetch(
-        `https://ahorrapp-react-pkj9.onrender.com/api/bolsa/${sym}`
+        `/api/bolsa/${sym}`
       )
 
       const data = await res.json()
