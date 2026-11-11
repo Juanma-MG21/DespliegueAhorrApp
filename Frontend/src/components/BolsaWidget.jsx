@@ -56,15 +56,17 @@ export default function BolsaWidget() {
   // TRM
   // ─────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('https://ahorrapp-react-pkj9.onrender.com/api/bolsa/trm/usd-cop')
+    // Se cambia la URL absoluta por una ruta relativa nativa para producción en AWS
+    fetch('/api/bolsa/trm/usd-cop')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.trm) {
-          setTrm(data.trm)
+          setTrm(data.trm);
         }
       })
-      .catch(() => {})
-  }, [])
+      .catch(() => {});
+  }, []);
+
 
   // ─────────────────────────────────────────────────────────
   // Fetch acciones
@@ -78,9 +80,9 @@ export default function BolsaWidget() {
       await Promise.all(
         lista.map(async (accion) => {
           const res = await fetch(
-            `https://ahorrapp-react-pkj9.onrender.com/api/bolsa/${accion.symbol}`
-            
-          )
+            `/api/bolsa/${accion.symbol}`
+          );
+
 
           const data = await res.json()
 
@@ -150,7 +152,7 @@ export default function BolsaWidget() {
 
     try {
       const res = await fetch(
-        `https://ahorrapp-react-pkj9.onrender.com/api/bolsa/${sym}`
+        `/api/bolsa/${sym}`
       )
 
       const data = await res.json()

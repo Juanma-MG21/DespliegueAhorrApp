@@ -27,8 +27,8 @@ const app = express();
 // MIDDLEWARES
 // ================================
 
-// Orígenes permitidos: los de desarrollo + los que se definan en CORS_ORIGINS
-// (separados por coma), p. ej. la URL donde se despliega el frontend web.
+// En producción con Nginx como Proxy inverso, el origen es local, pero permitimos
+// comodines o variables configuradas para evitar conflictos de red.
 const ORIGENES_CORS = [
     "https://localhost:5173",
     "http://localhost:5173",
@@ -36,8 +36,10 @@ const ORIGENES_CORS = [
     ...(process.env.CORS_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean),
 ];
 
+// Si estás en producción pura detrás de Nginx, puedes usar cors() abierto o mantener tu arreglo.
+// Dejamos soporte abierto para simplificar el tráfico local interno.
 app.use(cors({
-    origin: ORIGENES_CORS,
+    origin: process.env.NODE_ENV === "production" ? true : ORIGENES_CORS,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
@@ -48,13 +50,11 @@ app.use(express.json());
 // RUTAS
 // ================================
 app.use("/api/ai", aiRoutes);
-// app.use("/api/alphaVantageRoutes", alphaVantageRoutes);
 app.use("/api", alphaVantageRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/categorias", categoriasRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/dependientes", dependientesRoutes);
-// app.use("/api/exportRoutes", exportRoutes);
 app.use("/api/movimientos", movimientosRoutes);
 app.use("/api/noticias", noticiasRoutes);
 app.use("/api", NotificacionesRoutes);
@@ -63,30 +63,24 @@ app.use("/api/fondo-emergencia", fondoemergenciaRoutes);
 app.use("/api/reportes", ReportesRoutes);
 app.use("/api/historial", historialRoutes);
 
-
-
 // ================================
 // RUTA DE PRUEBA
 // ================================
-
 app.get("/", (req, res) => {
     res.json({
         ok: true,
-        mensaje: "Servidor AhorrApp corriendo"
+        mensaje: "Servidor AhorrApp corriendo en AWS"
     });
 });
 
 // ================================
-// 404 Y MANEJO GLOBAL DE ERRORES (siempre JSON { ok, mensaje })
+// 404 Y MANEJO GLOBAL DE ERRORES
 // ================================
-
 app.use((req, res) => {
     res.status(404).json({ ok: false, mensaje: `Ruta no encontrada: ${req.method} ${req.originalUrl}` });
 });
 
-// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-    // JSON mal formado en el body -> 400 (antes Express respondía HTML)
     if (err && (err.type === "entity.parse.failed" || err instanceof SyntaxError)) {
         return res.status(400).json({ ok: false, mensaje: "El cuerpo de la petición no es un JSON válido" });
     }
@@ -97,7 +91,6 @@ app.use((err, req, res, next) => {
     res.status(500).json({ ok: false, mensaje: "Error interno del servidor" });
 });
 
-// Evita que una promesa rechazada sin capturar tumbe el proceso (500 en cadena)
 process.on("unhandledRejection", (motivo) => {
     console.error("unhandledRejection:", motivo && motivo.message ? motivo.message : motivo);
 });
@@ -105,12 +98,12 @@ process.on("unhandledRejection", (motivo) => {
 // ================================
 // SERVIDOR
 // ================================
-
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000; // Por defecto el puerto 5000 asignado en el proxy
 
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`Servidor AhorrApp ejecutándose en el puerto ${PORT}`);
 
+    // Tareas en segundo plano (Cron Jobs)
     iniciarEliminacionCuentasJob();
     iniciarVencimientosJob();
     iniciarUmbralesJob();

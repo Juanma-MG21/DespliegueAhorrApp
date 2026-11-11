@@ -8,7 +8,7 @@ import { useNotificaciones } from '../context/NotificacionesContext'
 import { validarMonto, validarLongitud, validarNoFutura, primerError, LIMITES, hoyISO } from '../utils/validaciones'
 
 // const API = 'http://localhost:3000/api/movimientos'
-const API = 'https://ahorrapp-react-pkj9.onrender.com/api/movimientos'
+const API = '/api/movimientos'
 
 const fmt      = (n) => `$${Number(n).toLocaleString('es-CO')}`
 const fmtFecha = (f) => {

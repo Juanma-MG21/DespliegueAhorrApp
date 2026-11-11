@@ -16,7 +16,7 @@ export default function PanelDependientes() {
       const token = localStorage.getItem('token');
 
       // const response = await fetch('http://localhost:3000/api/auth/PanelDependientes', {
-      const response = await fetch ('https://ahorrapp-react-pkj9.onrender.com/api/auth/PanelDependientes', {  
+      const response = await fetch ('/api/auth/PanelDependientes', {  
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
