@@ -1,25 +1,26 @@
 const { Pool } = require("pg");
 require("dotenv").config();
 
-// Configuración de conexión local para producción en AWS (Disco de 5GB)
-// Se elimina la propiedad SSL ya que la base de datos corre de forma local e interna.
+// SSL solo si DB_SSL=true (BD en la nube como Supabase). Con PostgreSQL local
+// en la instancia AWS se deja desactivado (valor por defecto).
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT || 5432,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  max: 10, // Límite máximo de conexiones simultáneas en el pool
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
+  max: 10,
 });
 
 pool
   .connect()
   .then((client) => {
-    console.log("Conexión a la base de datos local exitosa");
+    console.log("Conexión a la base de datos exitosa");
     client.release();
   })
   .catch((error) => {
-    console.error("Error al conectar a la base de datos local:", error.message);
+    console.error("Error al conectar a la base de datos:", error.message);
   });
 
 module.exports = pool;

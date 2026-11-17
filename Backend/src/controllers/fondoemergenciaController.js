@@ -5,6 +5,7 @@ const {
   validarMonto,
   validarTexto,
 } = require("../service/validaciones");
+const { verificarUmbralEmergencia } = require("../service/NotificacionesService");
 
 const ERROR_500 = { ok: false, mensaje: "Error interno del servidor" };
 const SIN_FONDO = {
@@ -19,6 +20,15 @@ const rollbackSeguro = async (connection) => {
     await connection.query("ROLLBACK");
   } catch (_) {
     /* conexión ya cerrada */
+  }
+};
+
+// Efectos posteriores al COMMIT: nunca deben tumbar una operación ya confirmada.
+const efectoSeguro = async (fn) => {
+  try {
+    await fn();
+  } catch (error) {
+    console.error("Error en efecto posterior:", error.message);
   }
 };
 
@@ -211,6 +221,8 @@ const registrarAporte = async (req, res) => {
 
     await connection.query("COMMIT");
 
+    await efectoSeguro(() => verificarUmbralEmergencia(ID_usuario));
+
     return res.status(201).json({
       ok: true,
       mensaje: "Aporte registrado correctamente",
@@ -285,6 +297,8 @@ const registrarRetiro = async (req, res) => {
     const movimiento = await insertarMovimiento(connection, fondo.id_fondo, "retiro", monto, descripcion);
 
     await connection.query("COMMIT");
+
+    await efectoSeguro(() => verificarUmbralEmergencia(ID_usuario));
 
     return res.status(201).json({
       ok: true,

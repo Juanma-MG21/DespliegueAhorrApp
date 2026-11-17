@@ -31,7 +31,6 @@ const getHistorial = async (req, res) => {
         h.fecha
       FROM historial h
       INNER JOIN usuarios u ON h.id_usuario = u.id_usuario
-      WHERE h.accion NOT LIKE 'RF19:%'
       ORDER BY h.fecha DESC
     `);
 
@@ -58,7 +57,7 @@ const getHistorialPropio = async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id_historial, accion, detalles, fecha
        FROM historial
-       WHERE id_usuario = $1 AND accion NOT LIKE 'RF19:%'
+       WHERE id_usuario = $1
        ORDER BY fecha DESC`,
       [ID_usuario]
     );

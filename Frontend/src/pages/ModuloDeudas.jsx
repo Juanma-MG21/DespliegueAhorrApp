@@ -7,7 +7,6 @@ import { useToast } from '../context/ToastContext'
 import { useNotificaciones } from '../context/NotificacionesContext'
 import { validarMonto, validarLongitud, validarCuotas, primerError, LIMITES } from '../utils/validaciones'
 
-// const API = 'http://localhost:3000/api/movimientos'
 const API = '/api/movimientos'
 
 

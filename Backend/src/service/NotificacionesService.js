@@ -17,10 +17,29 @@ const enviarPush = async (ID_usuario, titulo, mensaje) => {
 
     const tokens = rows.map((r) => r.fcm_token);
 
-    await admin.messaging().sendEachForMulticast({
+    const response = await admin.messaging().sendEachForMulticast({
       tokens,
       notification: { title: titulo, body: mensaje },
     });
+
+    // Limpia tokens muertos para no acumular basura
+    const tokensMuertos = [];
+    response.responses.forEach((r, i) => {
+      if (
+        r.error &&
+        (r.error.code === "messaging/registration-token-not-registered" ||
+          r.error.code === "messaging/invalid-registration-token")
+      ) {
+        tokensMuertos.push(tokens[i]);
+      }
+    });
+
+    if (tokensMuertos.length > 0) {
+      await pool.query(
+        `DELETE FROM push_tokens WHERE fcm_token = ANY($1::text[])`,
+        [tokensMuertos]
+      );
+    }
   } catch (error) {
     console.error("Error en enviarPush:", error.message);
   }
@@ -34,7 +53,11 @@ const crearNotificacion = async ({
   Entidad_id = null,
 }) => {
   if (!ID_usuario || !Tipo || !Mensaje?.trim()) {
-    console.error("crearNotificacion: faltan campos requeridos", { ID_usuario, Tipo, Mensaje });
+    console.error("crearNotificacion: faltan campos requeridos", {
+      ID_usuario,
+      Tipo,
+      Mensaje,
+    });
     return null;
   }
 
@@ -42,23 +65,47 @@ const crearNotificacion = async ({
     const activa = await preferenciaActiva(ID_usuario, Tipo);
     if (!activa) return null;
 
-    const { rows: result } = await pool.query(
-      `INSERT INTO notificaciones (id_usuario, tipo, entidad_tipo, entidad_id, mensaje)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id_notificacion`,
-      [ID_usuario, Tipo, Entidad_tipo, Entidad_id, Mensaje.trim()]
-    );
+    // Con entidad asociada se usa ON CONFLICT DO NOTHING para evitar duplicados
+    // incluso con peticiones simultáneas. El WHERE debe coincidir con el índice
+    // único PARCIAL de la tabla notificaciones (entidad_tipo/entidad_id no nulos).
+    const usarConflicto = Entidad_tipo !== null && Entidad_id !== null;
+
+    const sql = usarConflicto
+      ? `INSERT INTO notificaciones (id_usuario, tipo, entidad_tipo, entidad_id, mensaje)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id_usuario, tipo, entidad_tipo, entidad_id) WHERE entidad_tipo IS NOT NULL AND entidad_id IS NOT NULL
+         DO NOTHING
+         RETURNING id_notificacion`
+      : `INSERT INTO notificaciones (id_usuario, tipo, entidad_tipo, entidad_id, mensaje)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id_notificacion`;
+
+    const { rows } = await pool.query(sql, [
+      ID_usuario,
+      Tipo,
+      Entidad_tipo,
+      Entidad_id,
+      Mensaje.trim(),
+    ]);
+
+    // Sin filas = ya existía (conflicto): no se reenvía el push.
+    if (rows.length === 0) return null;
 
     await enviarPush(ID_usuario, "Ahorrapp", Mensaje.trim());
 
-    return result[0].id_notificacion;
+    return rows[0].id_notificacion;
   } catch (error) {
     console.error("Error en crearNotificacion:", error.message);
     return null;
   }
 };
 
-const existeNotificacionEntidad = async (ID_usuario, Tipo, Entidad_tipo, Entidad_id) => {
+const existeNotificacionEntidad = async (
+  ID_usuario,
+  Tipo,
+  Entidad_tipo,
+  Entidad_id
+) => {
   try {
     const { rows } = await pool.query(
       `SELECT id_notificacion FROM notificaciones
@@ -89,12 +136,17 @@ const preferenciaActiva = async (ID_usuario, Tipo) => {
   }
 };
 
-const TIPOS_NOTIFICACION = ["sistema", "recordatorio", "sugerencia", "alerta_presupuesto"];
+const TIPOS_NOTIFICACION = [
+  "sistema",
+  "recordatorio",
+  "sugerencia",
+  "alerta_presupuesto",
+];
 
 const UMBRAL_GASTOS = 85;
 const UMBRAL_IMPREVISTOS = 85;
 const UMBRAL_DEUDAS = 85;
-const UMBRAL_AHORROS = 85; 
+const UMBRAL_AHORROS = 85;
 const UMBRAL_EMERGENCIA = 85;
 
 // --- GASTOS ---
@@ -103,8 +155,12 @@ const verificarUmbralGastos = async (ID_usuario) => {
     const periodo = await getPeriodoActivo(ID_usuario);
     if (!periodo) return;
 
-    // CAMBIO: Nombres en minúscula según tu BD
-    const { fecha_inicio: fi, fecha_fin: ff, monto_gastos, id_presupuesto } = periodo;
+    // Nombres exactos con los que periodoHelper devuelve el período
+    const fi = periodo.Fecha_inicio;
+    const ff = periodo.Fecha_fin;
+    const monto_gastos = periodo.Monto_gastos;
+    const id_presupuesto = periodo.ID_presupuesto;
+
     if (!monto_gastos || Number(monto_gastos) <= 0) return;
 
     const { rows: [gas] } = await pool.query(
@@ -142,7 +198,11 @@ const verificarUmbralImprevistos = async (ID_usuario) => {
     const periodo = await getPeriodoActivo(ID_usuario);
     if (!periodo) return;
 
-    const { fecha_inicio: fi, fecha_fin: ff, monto_imprevistos, id_presupuesto } = periodo;
+    const fi = periodo.Fecha_inicio;
+    const ff = periodo.Fecha_fin;
+    const monto_imprevistos = periodo.Monto_imprevistos;
+    const id_presupuesto = periodo.ID_presupuesto;
+
     if (!monto_imprevistos || Number(monto_imprevistos) <= 0) return;
 
     const { rows: [imp] } = await pool.query(
@@ -180,15 +240,22 @@ const verificarUmbralDeudas = async (ID_usuario) => {
     const periodo = await getPeriodoActivo(ID_usuario);
     if (!periodo) return;
 
-    const { fecha_inicio: fi, fecha_fin: ff, monto_deudas, id_presupuesto } = periodo;
+    const fi = periodo.Fecha_inicio;
+    const ff = periodo.Fecha_fin;
+    const monto_deudas = periodo.Monto_deudas;
+    const id_presupuesto = periodo.ID_presupuesto;
+
     if (!monto_deudas || Number(monto_deudas) <= 0) return;
 
+    // Se suma lo REALMENTE abonado en el período (abonos_deuda), igual que el
+    // panel del presupuesto.
     const { rows: [deu] } = await pool.query(
-      `SELECT COALESCE(SUM(d.monto), 0)::float AS total
-       FROM deudas d
+      `SELECT COALESCE(SUM(ad.monto), 0)::float AS total
+       FROM abonos_deuda ad
+       JOIN deudas d      ON ad.id_deudas     = d.id_deudas
        JOIN salida s      ON d.id_salida      = s.id_salida
        JOIN movimientos m ON s.id_movimiento  = m.id_movimiento
-       WHERE m.id_usuario = $1 AND d.fecha_registro BETWEEN $2 AND $3`,
+       WHERE m.id_usuario = $1 AND ad.fecha_registro BETWEEN $2 AND $3`,
       [ID_usuario, fi, ff]
     );
 
@@ -212,20 +279,62 @@ const verificarUmbralDeudas = async (ID_usuario) => {
   }
 };
 
+// --- RECORDATORIO DEUDAS PRÓXIMAS A VENCER (5 DÍAS) ---
+const verificarDeudasProximasAVencer = async (ID_usuario) => {
+  try {
+    // JOIN con salida y movimientos para llegar al id_usuario
+    const { rows: deudas } = await pool.query(
+      `SELECT d.id_deudas, d.monto, d.fecha_fin
+       FROM deudas d
+       INNER JOIN salida s      ON d.id_salida     = s.id_salida
+       INNER JOIN movimientos m ON s.id_movimiento = m.id_movimiento
+       WHERE m.id_usuario = $1
+         AND d.estado = 'pendiente'
+         AND d.fecha_fin BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '5 days'`,
+      [ID_usuario]
+    );
+
+    for (const deuda of deudas) {
+      const yaExiste = await existeNotificacionEntidad(
+        ID_usuario, "recordatorio", "deuda_vencimiento", deuda.id_deudas
+      );
+      if (yaExiste) continue;
+
+      // Formatear la fecha para el mensaje
+      const fechaFormateada = new Date(deuda.fecha_fin).toLocaleDateString("es-CO");
+
+      await crearNotificacion({
+        ID_usuario,
+        Tipo: "recordatorio",
+        Mensaje: `¡Atención! Tu deuda de $${deuda.monto} vence el ${fechaFormateada}.`,
+        Entidad_tipo: "deuda_vencimiento",
+        Entidad_id: deuda.id_deudas,
+      });
+    }
+  } catch (error) {
+    console.error("Error en verificarDeudasProximasAVencer:", error.message);
+  }
+};
+
 // --- AHORROS ---
 const verificarUmbralAhorros = async (ID_usuario) => {
   try {
     const periodo = await getPeriodoActivo(ID_usuario);
     if (!periodo) return;
 
-    const { fecha_inicio: fi, fecha_fin: ff, monto_ahorros, id_presupuesto } = periodo;
+    const fi = periodo.Fecha_inicio;
+    const ff = periodo.Fecha_fin;
+    const monto_ahorros = periodo.Monto_ahorros;
+    const id_presupuesto = periodo.ID_presupuesto;
+
     if (!monto_ahorros || Number(monto_ahorros) <= 0) return;
 
+    // Los ahorros cuelgan de entrada (no de salida) y lo ahorrado es monto_acumulado.
     const { rows: [aho] } = await pool.query(
-      `SELECT COALESCE(SUM(a.monto), 0)::float AS total
+      `SELECT COALESCE(SUM(a.monto_acumulado), 0)::float AS total
        FROM ahorros a
-       JOIN salida s      ON a.id_salida      = s.id_salida
-       JOIN movimientos m ON s.id_movimiento  = m.id_movimiento
+       JOIN entrada e      ON a.id_entrada     = e.id_entrada
+       JOIN movimientos m  ON e.id_movimiento  = m.id_movimiento
        WHERE m.id_usuario = $1 AND a.fecha_registro BETWEEN $2 AND $3`,
       [ID_usuario, fi, ff]
     );
@@ -256,16 +365,22 @@ const verificarUmbralEmergencia = async (ID_usuario) => {
     const periodo = await getPeriodoActivo(ID_usuario);
     if (!periodo) return;
 
-    const { fecha_inicio: fi, fecha_fin: ff, monto_emergencia, id_presupuesto } = periodo;
+    const monto_emergencia = periodo.Monto_emergencia;
+    const id_presupuesto = periodo.ID_presupuesto;
+
     if (!monto_emergencia || Number(monto_emergencia) <= 0) return;
 
+    // Saldo HISTÓRICO del fondo (aportes − retiros), sin filtrar por fechas del período.
     const { rows: [eme] } = await pool.query(
-      `SELECT COALESCE(SUM(e.monto), 0)::float AS total
-       FROM emergencia e
-       JOIN salida s      ON e.id_salida      = s.id_salida
-       JOIN movimientos m ON s.id_movimiento  = m.id_movimiento
-       WHERE m.id_usuario = $1 AND e.fecha_registro BETWEEN $2 AND $3`,
-      [ID_usuario, fi, ff]
+      `SELECT COALESCE(
+         SUM(CASE WHEN mfe.tipo = 'aporte' THEN mfe.monto
+                  WHEN mfe.tipo = 'retiro' THEN -mfe.monto
+                  ELSE 0 END
+         ), 0)::float AS total
+       FROM movimientos_fondo_emergencia mfe
+       JOIN fondos_emergencia fe ON mfe.id_fondo = fe.id_fondo
+       WHERE fe.id_usuario = $1`,
+      [ID_usuario]
     );
 
     const porcentaje = (Number(eme.total) / Number(monto_emergencia)) * 100;
@@ -293,7 +408,11 @@ const UMBRAL_IMPREVISTOS_NO_USADO = 10;
 
 const verificarImprevistosNoUsados = async (ID_usuario, periodo) => {
   try {
-    const { fecha_inicio: fi, fecha_fin: ff, monto_imprevistos, id_presupuesto } = periodo;
+    const fi = periodo.Fecha_inicio;
+    const ff = periodo.Fecha_fin;
+    const monto_imprevistos = periodo.Monto_imprevistos;
+    const id_presupuesto = periodo.ID_presupuesto;
+
     if (!monto_imprevistos || Number(monto_imprevistos) <= 0) return;
 
     const { rows: [imp] } = await pool.query(
@@ -316,7 +435,8 @@ const verificarImprevistosNoUsados = async (ID_usuario, periodo) => {
     await crearNotificacion({
       ID_usuario,
       Tipo: "sugerencia",
-      Mensaje: "No usaste casi nada de tu porción de imprevistos este período. Considera destinar parte de ese dinero a tus ahorros.",
+      Mensaje:
+        "No usaste casi nada de tu porción de imprevistos este período. Considera destinar parte de ese dinero a tus ahorros.",
       Entidad_tipo: "periodo_imprevistos_no_usado",
       Entidad_id: id_presupuesto,
     });
@@ -326,14 +446,21 @@ const verificarImprevistosNoUsados = async (ID_usuario, periodo) => {
 };
 
 // --- META AHORRO ALCANZADA ---
-const verificarMetaAhorroAlcanzada = async (ID_usuario, ahorro, montoAcumulado) => {
+const verificarMetaAhorroAlcanzada = async (
+  ID_usuario,
+  ahorro,
+  montoAcumulado
+) => {
   try {
     const metaMonto = Number(ahorro.meta_monto);
     if (!metaMonto || metaMonto <= 0) return;
     if (Number(montoAcumulado) < metaMonto) return;
 
     const yaExiste = await existeNotificacionEntidad(
-      ID_usuario, "alerta_presupuesto", "ahorro_meta", ahorro.id_ahorros
+      ID_usuario,
+      "alerta_presupuesto",
+      "ahorro_meta",
+      ahorro.id_ahorros
     );
     if (yaExiste) return;
 
@@ -349,6 +476,17 @@ const verificarMetaAhorroAlcanzada = async (ID_usuario, ahorro, montoAcumulado) 
   } catch (error) {
     console.error("Error en verificarMetaAhorroAlcanzada:", error.message);
   }
+};
+
+// --- ORQUESTADOR ---
+const verificarTodosLosUmbrales = async (ID_usuario) => {
+  await Promise.all([
+    verificarUmbralGastos(ID_usuario),
+    verificarUmbralImprevistos(ID_usuario),
+    verificarUmbralDeudas(ID_usuario),
+    verificarUmbralAhorros(ID_usuario),
+    verificarUmbralEmergencia(ID_usuario),
+  ]);
 };
 
 const getPreferencias = async (ID_usuario) => {
@@ -391,5 +529,9 @@ module.exports = {
   verificarUmbralEmergencia,
   verificarImprevistosNoUsados,
   verificarMetaAhorroAlcanzada,
+  verificarTodosLosUmbrales,
+  verificarDeudasProximasAVencer,
+  UMBRAL_GASTOS,
+  UMBRAL_IMPREVISTOS,
   TIPOS_NOTIFICACION,
 };

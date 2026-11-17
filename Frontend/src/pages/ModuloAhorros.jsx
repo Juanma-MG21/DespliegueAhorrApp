@@ -7,7 +7,6 @@ import { useToast } from '../context/ToastContext'
 import { useNotificaciones } from '../context/NotificacionesContext'
 import { validarMonto, validarLongitud, validarOrdenFechas, primerError, LIMITES } from '../utils/validaciones'
 
-// const API = 'http://localhost:3000/api/movimientos'
 const API = '/api/movimientos'
 
 const fmt      = (n) => `$${Number(n).toLocaleString('es-CO')}`

@@ -1,27 +1,17 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react"; 
-import fs from 'fs';
+import react from "@vitejs/plugin-react";
 
-// Detecta automáticamente si Vite está compilando para producción en AWS
-const isProduction = process.env.NODE_ENV === 'production';
+// Desarrollo local: proxy de /api hacia el backend (por defecto http://127.0.0.1:5000).
+// Producción (AWS): se sirve `dist/` con Nginx, que reenvía /api al backend.
+const API_TARGET = process.env.VITE_API_TARGET || "http://127.0.0.1:5000";
 
 export default defineConfig({
-  plugins: [react()], 
+  plugins: [react()],
   server: {
-    host: `localhost`,
+    host: "localhost",
     port: 5173,
-    // En tu PC (desarrollo) usa HTTPS, en AWS (producción) se desactiva solo
-    https: isProduction ? false : {
-      key: fs.readFileSync('certs/private.key'),
-      cert: fs.readFileSync('certs/certificate.crt'),
-    },
     proxy: {
-      "/api": {
-        // En tu PC apunta a tu API o Render, en AWS Nginx se encarga por el puerto 5000
-        target: isProduction ? "http://127.0.0.1:5000" : "https://ahorrapp-react-pkj9.onrender.com",
-        changeOrigin: true,
-        secure: false,
-      },
+      "/api": { target: API_TARGET, changeOrigin: true, secure: false },
     },
   },
 });

@@ -7,7 +7,6 @@ import {
   primerError, LIMITES, MONTO_MINIMO_GASTO, hoyISO,
 } from '../utils/validaciones'
 
-// const API = 'http://localhost:3000/api/movimientos'
 const API = '/api/movimientos'
 
 // ── Configuración por subtipo ─────────────────────────────────

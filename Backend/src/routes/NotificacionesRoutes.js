@@ -6,6 +6,7 @@ router.param("id", validarIdParam); // 400 si el ID no es entero (evita 500 de P
 
 const { verifyToken } = require("../middlewares/authMiddleware");
 const {
+  // testNotificacion,
   getNotificaciones,
   getNoLeidasCount,
   marcarLeida,
@@ -35,7 +36,9 @@ router.put("/preferencias-notificacion", actualizarPreferenciasUsuario);
 router.post("/push-tokens", registrarPushToken);
 
 
-//--Ruta de prueba para crear notificaciones
-// router.post("/notificaciones/test", testNotificacion);
+//--Ruta de prueba para crear notificaciones (solo fuera de producción)
+// if (process.env.NODE_ENV !== "production") {
+//   router.post("/notificaciones/test", testNotificacion);
+// }
 
 module.exports = router;

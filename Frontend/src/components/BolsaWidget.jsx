@@ -56,17 +56,15 @@ export default function BolsaWidget() {
   // TRM
   // ─────────────────────────────────────────────────────────
   useEffect(() => {
-    // Se cambia la URL absoluta por una ruta relativa nativa para producción en AWS
     fetch('/api/bolsa/trm/usd-cop')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.trm) {
-          setTrm(data.trm);
+          setTrm(data.trm)
         }
       })
-      .catch(() => {});
-  }, []);
-
+      .catch(() => {})
+  }, [])
 
   // ─────────────────────────────────────────────────────────
   // Fetch acciones
@@ -81,8 +79,8 @@ export default function BolsaWidget() {
         lista.map(async (accion) => {
           const res = await fetch(
             `/api/bolsa/${accion.symbol}`
-          );
-
+            
+          )
 
           const data = await res.json()
 

@@ -10,7 +10,10 @@ const {
 const {
   verificarUmbralGastos,
   verificarUmbralImprevistos,
+  verificarUmbralDeudas,
+  verificarUmbralAhorros,
   verificarMetaAhorroAlcanzada,
+  verificarDeudasProximasAVencer,
 } = require("../service/NotificacionesService");
 const {
   LIMITES,
@@ -443,6 +446,11 @@ const crearMovimiento = async (req, res) => {
       await efectoSeguro(() => verificarUmbralGastos(ID_usuario));
     } else if (subtipo_modulo === "Imprevisto") {
       await efectoSeguro(() => verificarUmbralImprevistos(ID_usuario));
+    } else if (subtipo_modulo === "Deuda") {
+      await efectoSeguro(() => verificarUmbralDeudas(ID_usuario));
+      await efectoSeguro(() => verificarDeudasProximasAVencer(ID_usuario));
+    } else if (subtipo_modulo === "Ahorro") {
+      await efectoSeguro(() => verificarUmbralAhorros(ID_usuario));
     }
 
     return res.status(201).json(conOperacion ? { ...respuesta, operation_id } : respuesta);
@@ -628,6 +636,8 @@ const updateAhorros = async (req, res) => {
       );
     }
 
+    await efectoSeguro(() => verificarUmbralAhorros(ID_usuario));
+
     res.status(200).json({ ok: true, mensaje: "Ahorro actualizado exitosamente" });
   } catch (error) {
     if (responderErrorBD(res, error, "updateAhorros")) return;
@@ -641,6 +651,7 @@ const deleteAhorros = crearEliminador({
   padre: "entrada",
   nombre: "Ahorro",
   mensajeOk: "Ahorro eliminado exitosamente",
+  alEliminar: (ID_usuario) => verificarUmbralAhorros(ID_usuario),
 });
 
 // <==&&==·········· GASTOS ··········==&&==>
@@ -916,6 +927,10 @@ const updateDeudas = async (req, res) => {
         id,
       ]
     );
+
+    await efectoSeguro(() => verificarUmbralDeudas(ID_usuario));
+    await efectoSeguro(() => verificarDeudasProximasAVencer(ID_usuario));
+
     res.status(200).json({ ok: true, mensaje: "Deuda actualizada exitosamente" });
   } catch (error) {
     if (responderErrorBD(res, error, "updateDeudas")) return;
@@ -929,6 +944,7 @@ const deleteDeudas = crearEliminador({
   padre: "salida",
   nombre: "Deuda",
   mensajeOk: "Deuda eliminada exitosamente",
+  alEliminar: (ID_usuario) => verificarUmbralDeudas(ID_usuario),
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -1017,6 +1033,9 @@ const abonarDeuda = async (req, res) => {
     );
 
     await connection.query("COMMIT");
+
+    await efectoSeguro(() => verificarUmbralDeudas(ID_usuario));
+    await efectoSeguro(() => verificarDeudasProximasAVencer(ID_usuario));
 
     return res.status(200).json({
       ok: true,
@@ -1107,6 +1126,7 @@ const abonarAhorro = async (req, res) => {
     await connection.query("COMMIT");
 
     await efectoSeguro(() => verificarMetaAhorroAlcanzada(ID_usuario, ahorro, nuevoAcumulado));
+    await efectoSeguro(() => verificarUmbralAhorros(ID_usuario));
 
     return res.status(200).json({
       ok: true,
