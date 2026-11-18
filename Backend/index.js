@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 
-const aiRoutes = require("./src/routes/aiRoutes");
+
 const alphaVantageRoutes = require("./src/routes/alphaVantageRoutes");
 const authRoutes = require("./src/routes/authRoutes");
 const categoriasRoutes = require("./src/routes/categoriasRoutes");
@@ -47,7 +47,6 @@ app.use(express.json());
 // ================================
 // RUTAS
 // ================================
-app.use("/api/ai", aiRoutes); // antes de los routers montados en "/api" que exigen token
 app.use("/api", alphaVantageRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/categorias", categoriasRoutes);
